@@ -55,23 +55,54 @@ class Task:
         self.date = date
         self.completed = False
 
+class EmailCampaign:
+    def __init__(self, title, description, target_stage):
+        self.title = title
+        self.description = description
+        self.target_stage = target_stage
+        self.sent_to = []
+        self.created_at = datetime.now().strftime("%d/%m/%Y")
+
+    def to_dict(self):
+        return {
+            "title": self.title,
+            "description": self.description,
+            "target_stage": self.target_stage,
+            "sent_to": self.sent_to,
+            "created_at": self.created_at
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        camp = cls(data["title"], data["description"], data["target_stage"])
+        camp.sent_to = data.get("sent_to", [])
+        camp.created_at = data.get("created_at", datetime.now().strftime("%d/%m/%Y"))
+        return camp
+
 
 class CRM:
     def __init__(self):
         self.contatos = []
+        self.campanhas = []
         self.load_data()
 
     def save_data(self):
-        with open("contatos.json", "w", encoding="utf-8") as f:
-            json.dump([c.to_dict() for c in self.contatos], f, indent=2, ensure_ascii=False)
+    data = {
+        "contatos": [c.to_dict() for c in self.contatos],
+        "campanhas": [c.to_dict() for c in self.campanhas]
+    }
+    with open("crm_data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
     def load_data(self):
-        try:
-            with open("contatos.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.contatos = [Contato.from_dict(c) for c in data]
-        except FileNotFoundError:
-            self.contatos = []
+    try:
+        with open("crm_data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            self.contatos = [Contato.from_dict(c) for c in data.get("contatos", [])]
+            self.campanhas = [EmailCampaign.from_dict(c) for c in data.get("campanhas", [])]
+    except FileNotFoundError:
+        self.contatos = []
+        self.campanhas = []
 
     def add_contato(self):
         name = input("Nome: ")
@@ -115,6 +146,40 @@ class CRM:
         self.save_data()
         print("Estágio de venda atualizado!")
 
+    def add_email_campaign(self):
+        print("\n=== Nova Campanha de Email ===")
+        title = input("Título da campanha: ")
+        description = input("Descrição: ")
+        target_stage = input("Estágio alvo (Lead/Prospecto/Venda fechada): ")
+        camp = EmailCampaign(title, description, target_stage)
+        self.campanhas.append(camp)
+        self.save_data()
+        print("Campanha criada com sucesso!")
+    
+    def send_email_campaign(self):
+    if not self.campanhas:
+        print("Nenhuma campanha criada.")
+        return
+
+    print("\n=== Campanhas Disponíveis ===")
+    for i, c in enumerate(self.campanhas):
+        print(f"{i+1}. {c.title} - Alvo: {c.target_stage}")
+
+    idx = int(input("Escolha a campanha (número): ")) - 1
+    if 0 <= idx < len(self.campanhas):
+        campanha = self.campanhas[idx]
+        enviados = 0
+        for contato in self.contatos:
+            if (contato.sales_stage == campanha.target_stage or campanha.target_stage == "Todos") and contato.id not in campanha.sent_to:
+                campanha.sent_to.append(contato.id)
+                contato.activities.append(Atividade("Email", f"Enviado: {campanha.title}"))
+                enviados += 1
+        self.save_data()
+        print(f" Campanha enviada para {enviados} contato(s).")
+    else:
+        print("Campanha inválida.")
+    
+
     def report_summary(self):
         print("\n=== Relatório ===")
         print(f"Total de contatos: {len(self.contatos)}")
@@ -126,17 +191,21 @@ class CRM:
             print(f"{estagio}: {qtd} contato(s)")
 
 
+
+
 def main():
     crm = CRM()
     while True:
-        print("\n--- MENU CRM ---")
+        print("\n--- MENU CRM v2 ---")
         print("1. Adicionar contato")
         print("2. Listar contatos")
         print("3. Registrar atividade")
         print("4. Criar tarefa")
         print("5. Atualizar estágio de venda")
-        print("6. Relatório")
-        print("7. Sair")
+        print("6. Criar campanha de email")
+        print("7. Enviar campanha de email")
+        print("8. Relatório")
+        print("9. Sair")
         opcao = input("Escolha uma opção: ")
 
         match opcao:
@@ -145,8 +214,10 @@ def main():
             case "3": crm.add_atividade()
             case "4": crm.add_task()
             case "5": crm.update_sales_stage()
-            case "6": crm.report_summary()
-            case "7":
+            case "6": crm.add_email_campaign()
+            case "7": crm.send_email_campaign()
+            case "8": crm.report_summary()
+            case "9":
                 crm.save_data()
                 print("Saindo... dados salvos.")
                 break
