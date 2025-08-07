@@ -30,7 +30,7 @@ Um sistema de CRM simples e eficiente implementado em Python, oferecendo funcion
 
 1. **Clone o repositório**
    ```bash
-   git clone [github.com/jwaozera/crm-tool]
+   git clone github.com/jwaozera/crm-tool
    cd crm-system
    ```
 
